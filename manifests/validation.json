@@ -1,0 +1,14 @@
+{
+  "reference_machine_boot_tested": true,
+  "reference_campus_uninterrupted_over_ten_minutes": true,
+  "reference_internal_boot_without_usb_tested": true,
+  "public_wifi_privacy_rebuild_boot_tested": false,
+  "public_wifi_build_script_executed": true,
+  "public_wifi_rebuild_sha256_reproduced": true,
+  "ocvalidate": "OpenCore 1.0.9: No issues found",
+  "public_template_expected_missing_dependency": "AMFIPass 1.4.1 supplied separately",
+  "enterprise_policy_asan_ubsan": "65536 EtherTypes and 128 guard combinations passed",
+  "known_personal_identity_scan": "PASS",
+  "all_macho_section_bytes_unchanged_by_strip": true,
+  "new_undefined_kernel_imports": false
+}

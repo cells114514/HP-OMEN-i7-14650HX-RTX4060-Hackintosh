@@ -1,0 +1,78 @@
+--- a/AirportItlwm/AirportItlwmV2.cpp
++++ b/AirportItlwm/AirportItlwmV2.cpp
+@@ -140,13 +140,13 @@
+ bool AirportItlwm::init(OSDictionary *properties)
+ {
+ #ifdef AIRPORT_WCL
+-    IOLog("itlwm: OMEN_EAPDIAG build=738d4c6_omen_eaptx1 preauth-eapol-test\n");
++    IOLog("itlwm: OMEN_EAPDIAG build=738d4c6_omen_eapdone1 completion-trace-test\n");
+ #endif
+     XYLog("%s\n", __PRETTY_FUNCTION__);
+     bool ret = super::init(properties);
+ #ifdef AIRPORT_WCL
+     if (ret) {
+-        setProperty("OMENEapDiagBuild", "738d4c6_omen_eaptx1");
++        setProperty("OMENEapDiagBuild", "738d4c6_omen_eapdone1");
+         IOLog("itlwm: OMEN_EAPSELFTEST value=%u hex=0x%x tag=%s\n", 245u, 0x1234u, "format-ok");
+     }
+ #endif
+@@ -663,9 +663,21 @@
+     if (fNetIf) {
+         if (status & kIONetworkLinkActive) {
+ #ifdef __PRIVATE_SPI__
++#ifdef AIRPORT_WCL
++            IOLog("itlwm: OMEN_EAPSTATE active_worker_enter\n");
++            IOReturn workerResult = bsdInterface->startOutputThread();
++            IOLog("itlwm: OMEN_EAPSTATE active_worker_result=0x%x\n", workerResult);
++#else
+             bsdInterface->startOutputThread();
+ #endif
++#endif
++#ifdef AIRPORT_WCL
++            IOLog("itlwm: OMEN_EAPSTATE active_gate_enter\n");
++            IOReturn gateResult = getCommandGate()->runAction(setLinkStateGated, (void *)kIO80211NetworkLinkUp, (void *)0);
++            IOLog("itlwm: OMEN_EAPSTATE active_gate_result=0x%x\n", gateResult);
++#else
+             getCommandGate()->runAction(setLinkStateGated, (void *)kIO80211NetworkLinkUp, (void *)0);
++#endif
+ //            fNetIf->setLinkQualityMetric(100);
+         } else if (!(status & kIONetworkLinkNoNetworkChange)) {
+ #ifdef __PRIVATE_SPI__
+@@ -685,7 +697,9 @@
+ {
+     AirportItlwm *that = OSDynamicCast(AirportItlwm, target);
+ #ifdef AIRPORT_WCL
++    IOLog("itlwm: OMEN_EAPSTATE link_gate_enter up=%u\n", unsigned((IO80211LinkState)(uint64_t)arg0 == kIO80211NetworkLinkUp));
+     that->bsdInterface->setLinkState((IO80211LinkState)(uint64_t)arg0);
++    IOLog("itlwm: OMEN_EAPSTATE link_gate_bsd_done\n");
+     static_cast<AirportItlwmSkywalkInterface *>(that->fNetIf)->handleWCLLink(
+         (IO80211LinkState)(uint64_t)arg0 == kIO80211NetworkLinkUp);
+     return kIOReturnSuccess;
+--- a/AirportItlwm/WCL/WCL.cpp
++++ b/AirportItlwm/WCL/WCL.cpp
+@@ -557,6 +557,7 @@
+ 
+ void AirportItlwmSkywalkInterface::finishWCLJoin(uint16_t status, uint16_t reason, IOReturn driverStatus)
+ {
++    IOLog("itlwm: OMEN_EAPSTATE finish_join pending=%u status=%u reason=%u driver=0x%x\n", unsigned(joinPending), unsigned(status), unsigned(reason), driverStatus);
+     if (!joinPending)
+         return;
+     AirportWCL::ConnectionEvent event = {};
+@@ -568,7 +569,8 @@
+     joinDeferred = false;
+     explicit_bzero(&deferredJoin, sizeof(deferredJoin));
+     joinTimer->cancelTimeout();
+-    instance->postMessage(this, AirportWCL::ConnectComplete, &event, sizeof(event), true);
++    IOReturn completionResult = instance->postMessage(this, AirportWCL::ConnectComplete, &event, sizeof(event), true);
++    IOLog("itlwm: OMEN_EAPSTATE completion_post result=0x%x size=%u status=%u\n", completionResult, unsigned(sizeof(event)), unsigned(status));
+     if (status) {
+         if (fHalService->get80211Controller()->ic_wcl_enterprise)
+             instance->stopEnterpriseOutput();
+@@ -629,6 +631,7 @@
+ 
+ void AirportItlwmSkywalkInterface::handleWCLLink(bool up)
+ {
++    IOLog("itlwm: OMEN_EAPSTATE handle_link up=%u stopping=%u pending=%u beacon=%u authorized=%u\n", unsigned(up), unsigned(wclStopping), unsigned(joinPending), unsigned(firstBeaconNotified), unsigned(portAuthorized));
+     if (wclStopping)
+         return;
+     portAuthorized = up;

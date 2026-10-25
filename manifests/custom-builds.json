@@ -1,0 +1,23 @@
+{
+  "AirportItlwm": {
+    "upstream": "https://github.com/laobamac/itlwm",
+    "upstream_commit": "738d4c61b5a64433b27c1ab09dba94916ab77d8d",
+    "revision": "738d4c6_omen_eapnotify1",
+    "reference_boot_tested_binary_sha256": "8695bc8a94e0a3bf26e38f11e11c3aa41e74a93ed5a9608744fc5a9f0187376d",
+    "reference_boot_tested": true,
+    "published_binary_sha256": "930b4e7d24eff75743c0dcfc35d04ae4a15181b05b7c97cc899fb772238604ed",
+    "published_binary_uuid": "7DA84040-5748-3410-9DD2-BD8F6A6894B4",
+    "published_binary_boot_tested": false,
+    "difference": "same source; compiler file/debug prefix mapping and strip -S debug metadata removal; all Mach-O section bytes unchanged by strip; no new undefined kernel imports",
+    "target": "Sequoia 15.2+ / x86_64",
+    "compiler": "Xcode 16.4 (16F6)"
+  },
+  "AppleALC": {
+    "upstream": "https://github.com/acidanthera/AppleALC",
+    "upstream_commit": "ff01db21749271916d44605503499ceaa61d94b2",
+    "purpose": "ALC245 layout11 output-only",
+    "sha256": "f5cf9b5b435e91cbd33137e3e146c71fdca6ee707ac7bc3de449cae0e607a415",
+    "published_binary_boot_tested": true,
+    "compiler": "Xcode 16.4 (16F6)"
+  }
+}

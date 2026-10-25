@@ -1,0 +1,164 @@
+--- a/AirportItlwm/AirportItlwmV2.cpp
++++ b/AirportItlwm/AirportItlwmV2.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "AirportItlwmV2.hpp"
+ #include <OmenEapDiagKernel.h>
++#include <OmenEnterpriseTxPolicy.h>
+ #include <sys/_netstat.h>
+ #include <crypto/sha1.h>
+ #include <net80211/ieee80211_priv.h>
+@@ -139,13 +140,13 @@
+ bool AirportItlwm::init(OSDictionary *properties)
+ {
+ #ifdef AIRPORT_WCL
+-    IOLog("itlwm: OMEN_EAPDIAG build=738d4c6_omen_eapdiag3 logging-only\n");
++    IOLog("itlwm: OMEN_EAPDIAG build=738d4c6_omen_eaptx1 preauth-eapol-test\n");
+ #endif
+     XYLog("%s\n", __PRETTY_FUNCTION__);
+     bool ret = super::init(properties);
+ #ifdef AIRPORT_WCL
+     if (ret) {
+-        setProperty("OMENEapDiagBuild", "738d4c6_omen_eapdiag3");
++        setProperty("OMENEapDiagBuild", "738d4c6_omen_eaptx1");
+         IOLog("itlwm: OMEN_EAPSELFTEST value=%u hex=0x%x tag=%s\n", 245u, 0x1234u, "format-ok");
+     }
+ #endif
+@@ -704,12 +705,55 @@
+ #endif
+ }
+ 
++#ifdef AIRPORT_WCL
++IOReturn AirportItlwm::startEnterpriseOutput()
++{
++    return _fCommandGate ? _fCommandGate->runAction(startEnterpriseOutputGated, reinterpret_cast<void *>(1)) : kIOReturnNotReady;
++}
++
++IOReturn AirportItlwm::stopEnterpriseOutput()
++{
++    return _fCommandGate ? _fCommandGate->runAction(startEnterpriseOutputGated, nullptr) : kIOReturnNotReady;
++}
++
++IOReturn AirportItlwm::startEnterpriseOutputGated(OSObject *owner, void *startRequest, void *, void *, void *)
++{
++    auto that = OSDynamicCast(AirportItlwm, owner);
++    if (!that || !that->bsdInterface || !that->fHalService)
++        return kIOReturnNotReady;
++    if (!startRequest) {
++        IOReturn result = that->bsdInterface->stopOutputThread();
++        that->bsdInterface->flushOutputQueue();
++        IOLog("itlwm: OMEN_EAPSTATE preauth_output_stop result=0x%x\n", result);
++        return result;
++    }
++    auto ic = that->fHalService->get80211Controller();
++    if (!ic || !ic->ic_wcl_enterprise || ic->ic_state != IEEE80211_S_RUN ||
++        !ic->ic_bss || !ic->ic_if.if_snd.queue)
++        return kIOReturnNotReady;
++    // Starting the BSD pull worker does not authorize the 802.1X port.
++    // enqueuePacket and the existing RSN encapsulation both reject ordinary
++    // data while the peer port remains invalid.
++    IOReturn result = that->bsdInterface->startOutputThread();
++    IOLog("itlwm: OMEN_EAPSTATE preauth_output_start result=0x%x state=%d port_valid=%u\n",
++          result, int(ic->ic_state), unsigned(ic->ic_bss->ni_port_valid));
++    return result;
++}
++#endif
++
+ #ifdef __PRIVATE_SPI__
+ IOReturn AirportItlwm::outputStart(IONetworkInterface *interface, IOOptionBits options)
+ {
+     struct _ifnet *ifp = &fHalService->get80211Controller()->ic_ac.ac_if;
+     mbuf_t m = NULL;
+ #ifdef AIRPORT_WCL
++    auto ic = fHalService->get80211Controller();
++    if (ic->ic_wcl_enterprise && ic->ic_bss && !ic->ic_bss->ni_port_valid) {
++        static volatile SInt32 reports = 0;
++        if (OSIncrementAtomic(&reports) <= 64)
++            IOLog("itlwm: OMEN_EAPSTATE preauth_pull state=%d queued=%u\n",
++                  int(ic->ic_state), unsigned(ifp->if_snd.queue ? ifq_len(&ifp->if_snd) : 0));
++    }
+     if (!ifp->if_snd.queue)
+         return kIOReturnNoResources;
+     if (!ifq_empty(&ifp->if_snd))
+@@ -789,6 +833,17 @@
+     OmenEapMeta omenHeader = {};
+     const unsigned long omenLength = omenMbufLength(m);
+     const bool omenIsEap = omenLength && omenEapEthernet(omenMbufRead, m, omenLength, &omenHeader);
++    unsigned char ethernet[14] = {};
++    const bool haveEthernet = omenLength >= sizeof(ethernet) &&
++        mbuf_copydata(m, 0, sizeof(ethernet), ethernet) == 0;
++    const unsigned short etherType = haveEthernet ?
++        (unsigned short)((ethernet[12] << 8) | ethernet[13]) : 0;
++    if (!omenEnterpriseTxAllowed(ic->ic_wcl_enterprise,
++            ic->ic_bss && ic->ic_bss->ni_port_valid, haveEthernet, etherType)) {
++        if (m && mbuf_type(m) != MBUF_TYPE_FREE)
++            freePacket(m);
++        return kIOReturnOutputDropped;
++    }
+     if (omenIsEap)
+         omenEapEmit("enqueue_entry", omenHeader, int(ic->ic_state), unsigned(ifp->if_flags),
+                     int(currentStatus), ifp->if_snd.queue != nullptr);
+--- a/AirportItlwm/AirportItlwmV2.hpp
++++ b/AirportItlwm/AirportItlwmV2.hpp
+@@ -100,6 +100,9 @@
+     virtual UInt32 outputPacket(mbuf_t, void * param) override;
+ #ifdef AIRPORT_WCL
+     UInt32 enqueuePacket(mbuf_t);
++    IOReturn startEnterpriseOutput();
++    IOReturn stopEnterpriseOutput();
++    static IOReturn startEnterpriseOutputGated(OSObject *, void *, void *, void *, void *);
+     static IOReturn outputPacketGated(OSObject *, void *, void *, void *, void *);
+ #endif
+ #ifdef __PRIVATE_SPI__
+--- a/AirportItlwm/WCL/WCL.cpp
++++ b/AirportItlwm/WCL/WCL.cpp
+@@ -113,6 +113,9 @@
+     OSObject *, void *arg, void *, void *, void *)
+ {
+     auto self = static_cast<AirportItlwmSkywalkInterface *>(arg);
++    if (self->instance && self->fHalService &&
++        self->fHalService->get80211Controller()->ic_wcl_enterprise)
++        self->instance->stopEnterpriseOutput();
+     self->portAuthorized = false;
+     self->updateWCLLinkQuality(true);
+     self->wclStopping = true;
+@@ -567,6 +570,8 @@
+     joinTimer->cancelTimeout();
+     instance->postMessage(this, AirportWCL::ConnectComplete, &event, sizeof(event), true);
+     if (status) {
++        if (fHalService->get80211Controller()->ic_wcl_enterprise)
++            instance->stopEnterpriseOutput();
+         portAuthorized = false;
+         updateWCLLinkQuality(true);
+         ieee80211com *ic = fHalService->get80211Controller();
+@@ -589,6 +594,8 @@
+ IOReturn AirportItlwmSkywalkInterface::leaveWCLNetwork()
+ {
+     ieee80211com *ic = fHalService->get80211Controller();
++    if (ic->ic_wcl_enterprise)
++        instance->stopEnterpriseOutput();
+     portAuthorized = false;
+     updateWCLLinkQuality(true);
+     joinPending = false;
+@@ -760,6 +767,8 @@
+                           int(ic->ic_state), unsigned(ic->ic_if.if_flags), unsigned(portAuthorized));
+                 instance->postMessage(this, AirportWCL::LinkStatus, &link, sizeof(link), true);
+                 instance->postMessage(this, AirportWCL::FirstBeacon, &event, sizeof(event), true);
++                if (ic->ic_wcl_enterprise && !portAuthorized)
++                    instance->startEnterpriseOutput();
+                 if (portAuthorized)
+                     finishWCLJoin(0, 0, kIOReturnSuccess);
+             }
+--- /dev/null
++++ b/include/OmenEnterpriseTxPolicy.h
+@@ -0,0 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#ifndef OMEN_ENTERPRISE_TX_POLICY_H
++#define OMEN_ENTERPRISE_TX_POLICY_H
++// Preserve PSK/authorized data; permit only EAPOL through a closed enterprise port.
++static inline bool omenEnterpriseTxAllowed(bool enterprise, bool authorized,
++                                           bool completeEthernet, unsigned short etherType)
++{
++    return !enterprise || authorized || (completeEthernet && etherType == 0x888e);
++}
++#endif

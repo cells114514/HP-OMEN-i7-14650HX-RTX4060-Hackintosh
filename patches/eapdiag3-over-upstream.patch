@@ -1,0 +1,320 @@
+--- a/AirportItlwm/AirportItlwmV2.cpp
++++ b/AirportItlwm/AirportItlwmV2.cpp
+@@ -7,6 +7,7 @@
+ //
+ 
+ #include "AirportItlwmV2.hpp"
++#include <OmenEapDiagKernel.h>
+ #include <sys/_netstat.h>
+ #include <crypto/sha1.h>
+ #include <net80211/ieee80211_priv.h>
+@@ -137,8 +138,17 @@
+ 
+ bool AirportItlwm::init(OSDictionary *properties)
+ {
++#ifdef AIRPORT_WCL
++    IOLog("itlwm: OMEN_EAPDIAG build=738d4c6_omen_eapdiag3 logging-only\n");
++#endif
+     XYLog("%s\n", __PRETTY_FUNCTION__);
+     bool ret = super::init(properties);
++#ifdef AIRPORT_WCL
++    if (ret) {
++        setProperty("OMENEapDiagBuild", "738d4c6_omen_eapdiag3");
++        IOLog("itlwm: OMEN_EAPSELFTEST value=%u hex=0x%x tag=%s\n", 245u, 0x1234u, "format-ok");
++    }
++#endif
+     awdlSyncEnable = true;
+     power_state = 0;
+     memset(geo_location_cc, 0, sizeof(geo_location_cc));
+@@ -644,6 +654,11 @@
+     }
+     bool ret = super::setLinkStatus(status, activeMedium, speed, data);
+     currentStatus = status;
++#ifdef AIRPORT_WCL
++    IOLog("itlwm: OMEN_EAPSTATE linkstatus=0x%x state=%d flags=0x%x\n",
++          status, int(fHalService->get80211Controller()->ic_state),
++          unsigned(ifq->if_flags));
++#endif
+     if (fNetIf) {
+         if (status & kIONetworkLinkActive) {
+ #ifdef __PRIVATE_SPI__
+@@ -709,6 +724,8 @@
+     while (m) {
+         mbuf_t next = mbuf_nextpkt(m);
+         mbuf_setnextpkt(m, NULL);
++        omenEapTrace("bsd_output_dequeue", m, int(fHalService->get80211Controller()->ic_state),
++                     unsigned(ifp->if_flags), int(currentStatus), int(queued));
+         enqueuePacket(m);
+         m = next;
+     }
+@@ -743,6 +760,9 @@
+ #ifdef AIRPORT_WCL
+ UInt32 AirportItlwm::outputPacket(mbuf_t m, void *param)
+ {
++    omenEapTrace("outputPacket_entry", m, int(fHalService->get80211Controller()->ic_state),
++                 unsigned(fHalService->get80211Controller()->ic_if.if_flags),
++                 int(currentStatus), _fCommandGate != nullptr);
+     IOReturn status = _fCommandGate ? _fCommandGate->runAction(outputPacketGated, m) : kIOReturnNotReady;
+     if (status != kIOReturnOutputSuccess && status != kIOReturnOutputDropped) {
+         if (m && mbuf_type(m) != MBUF_TYPE_FREE)
+@@ -766,10 +786,23 @@
+ {
+     auto ic = fHalService->get80211Controller();
+     auto ifp = &ic->ic_ac.ac_if;
++    OmenEapMeta omenHeader = {};
++    const unsigned long omenLength = omenMbufLength(m);
++    const bool omenIsEap = omenLength && omenEapEthernet(omenMbufRead, m, omenLength, &omenHeader);
++    if (omenIsEap)
++        omenEapEmit("enqueue_entry", omenHeader, int(ic->ic_state), unsigned(ifp->if_flags),
++                    int(currentStatus), ifp->if_snd.queue != nullptr);
+     if (ic->ic_state == IEEE80211_S_RUN && ifp->if_snd.queue &&
+         m && mbuf_type(m) != MBUF_TYPE_FREE && (mbuf_flags(m) & MBUF_PKTHDR) &&
+-        ifp->if_snd.queue->lockEnqueue(m))
++        ifp->if_snd.queue->lockEnqueue(m)) {
++        if (omenIsEap)
++            omenEapEmit("enqueue_accepted", omenHeader, int(ic->ic_state), unsigned(ifp->if_flags),
++                        int(currentStatus), 0);
+         return kIOReturnOutputSuccess;
++    }
++    if (omenIsEap)
++        omenEapEmit("enqueue_dropped", omenHeader, int(ic->ic_state), unsigned(ifp->if_flags),
++                    int(currentStatus), ifp->if_snd.queue != nullptr);
+     if (ifp->netStat)
+         ++ifp->netStat->outputErrors;
+     if (m && mbuf_type(m) != MBUF_TYPE_FREE)
+--- a/AirportItlwm/WCL/WCL.cpp
++++ b/AirportItlwm/WCL/WCL.cpp
+@@ -8,6 +8,7 @@
+ 
+ #ifdef AIRPORT_WCL
+ #include "../AirportItlwmV2.hpp"
++#include <OmenEapDiagKernel.h>
+ #include "../AirportItlwmSkywalkInterface.hpp"
+ #include <kern/thread_call.h>
+ #include <kern/clock.h>
+@@ -754,6 +755,9 @@
+                 link.up = 1;
+                 link.reason = 255;
+                 wclLinkIndicated = true;
++                if (ic->ic_wcl_enterprise)
++                    IOLog("itlwm: OMEN_EAPSTATE first_beacon state=%d flags=0x%x authorized=%u\n",
++                          int(ic->ic_state), unsigned(ic->ic_if.if_flags), unsigned(portAuthorized));
+                 instance->postMessage(this, AirportWCL::LinkStatus, &link, sizeof(link), true);
+                 instance->postMessage(this, AirportWCL::FirstBeacon, &event, sizeof(event), true);
+                 if (portAuthorized)
+@@ -778,6 +782,9 @@
+                 memcpy(event.bssid, joinBSSID, 6);
+                 event.driverStatus = event.status ? kIOReturnError : kIOReturnSuccess;
+                 assocNotified = !event.status;
++                if (ic->ic_wcl_enterprise)
++                    IOLog("itlwm: OMEN_EAPSTATE assoc_complete status=%u state=%d flags=0x%x\n",
++                          unsigned(event.status), int(ic->ic_state), unsigned(ic->ic_if.if_flags));
+                 instance->postMessage(this, AirportWCL::AssocComplete, &event, sizeof(event), true);
+                 if (event.status)
+                     finishWCLJoin(event.status, 0, kIOReturnError);
+--- a/itl80211/openbsd/net80211/ieee80211_input.c
++++ b/itl80211/openbsd/net80211/ieee80211_input.c
+@@ -67,6 +67,7 @@
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_priv.h>
++#include <OmenEapDiagKernel.h>
+ 
+ mbuf_t ieee80211_input_hwdecrypt(struct ieee80211com *,
+                                  struct ieee80211_node *, mbuf_t,
+@@ -1135,6 +1136,8 @@
+ #endif
+ #if defined(AIRPORT_WCL)
+             if (ic->ic_wcl_enterprise) {
++                omenEapTrace("rx_enterprise_deliver", m, int(ic->ic_state),
++                             unsigned(ifp->if_flags), 0, 0);
+                 mbuf_t eapCopy = NULL;
+                 if (mbuf_dup(m, MBUF_DONTWAIT, &eapCopy) == 0 && eapCopy)
+                     ml_enqueue(ml, eapCopy);
+--- a/itlwm/hal_iwx/ItlIwx.cpp
++++ b/itlwm/hal_iwx/ItlIwx.cpp
+@@ -110,6 +110,7 @@
+ #include "../../AirportItlwm/WCL/WCL.hpp"
+ #endif
+ #include "ItlIwx.hpp"
++#include <OmenEapDiagKernel.h>
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <FwData.h>
+@@ -6946,6 +6947,14 @@
+ {
+     struct ieee80211com *ic = &sc->sc_ic;
+     struct iwx_node *in = (struct iwx_node *)ni;
++#ifdef AIRPORT_WCL
++    OmenEapMeta omenTxHeader = {};
++    const unsigned long omenTxLength = omenMbufLength(m);
++    const bool omenIsEap = omenTxLength && omenEapWifi(omenMbufRead, m, omenTxLength, &omenTxHeader);
++    if (omenIsEap)
++        omenEapEmit("iwx_tx_entry", omenTxHeader, int(ic->ic_state),
++                    unsigned(ic->ic_if.if_flags), ac, 0);
++#endif
+     struct iwx_tx_ring *ring;
+     struct iwx_tx_data *data;
+     struct iwx_tfh_tfd *desc;
+@@ -7160,6 +7169,12 @@
+     
+     iwx_tx_update_byte_tbl(sc, ring, idx, totlen, num_tbs);
+     
++    /* Metadata was copied before mbuf/DMA header transformations. */
++#ifdef AIRPORT_WCL
++    if (omenIsEap)
++        omenEapEmit("iwx_ring_submit", omenTxHeader, int(ic->ic_state),
++                    unsigned(ic->ic_if.if_flags), int(ring->qid), idx);
++#endif
+     /* Kick TX ring. */
+     ring->cur = (ring->cur + 1) % getTxQueueSize();
+     IWX_WRITE(sc, IWX_HBUS_TARG_WRPTR, ring->qid << 16 | ring->cur);
+@@ -10870,6 +10885,10 @@
+         m = ifq_dequeue(&ifp->if_snd);
+         if (!m)
+             break;
++#ifdef AIRPORT_WCL
++        omenEapTrace("iwx_dequeue", m, int(ic->ic_state), unsigned(ifp->if_flags),
++                     int(sc->sc_flags), ac);
++#endif
+         if (mbuf_len(m) < sizeof (*eh) &&
+             mbuf_pullup(&m, sizeof (*eh)) != 0) {
+             ifp->netStat->outputErrors++;
+--- /dev/null
++++ b/include/OmenEapDiag.h
+@@ -0,0 +1,86 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++// Header-only EAPOL metadata decoder. Never reads identity or TLS/MSCHAP payload.
++#ifndef OMEN_EAP_DIAG_H
++#define OMEN_EAP_DIAG_H
++
++typedef int (*OmenEapRead)(void *, unsigned long, unsigned long, unsigned char *);
++struct OmenEapMeta {
++    unsigned long packetLength;
++    unsigned int version, type, bodyLength, code, identifier, eapLength, method;
++    unsigned int hasEap, hasMethod;
++};
++
++static inline bool omenRead(OmenEapRead read, void *ctx, unsigned long total,
++                            unsigned long offset, unsigned long length, unsigned char *out)
++{
++    return offset <= total && length <= total - offset && read(ctx, offset, length, out) == 0;
++}
++
++static inline bool omenEapBody(OmenEapRead read, void *ctx, unsigned long total,
++                              unsigned long offset, OmenEapMeta *out)
++{
++    unsigned char h[4];
++    if (!omenRead(read, ctx, total, offset, sizeof(h), h))
++        return false;
++    OmenEapMeta result = {};
++    result.packetLength = total;
++    result.version = h[0];
++    result.type = h[1];
++    result.bodyLength = (unsigned(h[2]) << 8) | h[3];
++    offset += 4;
++    if (result.bodyLength > total - offset)
++        return false;
++    if (result.type == 0) {
++        if (result.bodyLength < 4 || !omenRead(read, ctx, total, offset, sizeof(h), h))
++            return false;
++        result.code = h[0];
++        result.identifier = h[1];
++        result.eapLength = (unsigned(h[2]) << 8) | h[3];
++        if (result.eapLength < 4 || result.eapLength > result.bodyLength)
++            return false;
++        result.hasEap = 1;
++        if (result.code == 1 || result.code == 2) {
++            if (result.eapLength < 5 || !omenRead(read, ctx, total, offset + 4, 1, h))
++                return false;
++            result.method = h[0];
++            result.hasMethod = 1;
++        }
++    }
++    *out = result;
++    return true;
++}
++
++static inline bool omenEapEthernet(OmenEapRead read, void *ctx, unsigned long total,
++                                  OmenEapMeta *out)
++{
++    unsigned char type[2];
++    if (!omenRead(read, ctx, total, 12, sizeof(type), type) || type[0] != 0x88 || type[1] != 0x8e)
++        return false;
++    return omenEapBody(read, ctx, total, 14, out);
++}
++
++static inline bool omenEapWifi(OmenEapRead read, void *ctx, unsigned long total,
++                              OmenEapMeta *out)
++{
++    unsigned char fc[2], snap[8];
++    if (!omenRead(read, ctx, total, 0, sizeof(fc), fc) || (fc[0] & 0x0c) != 0x08)
++        return false;
++    // Protected frames may contain encrypted payload or an inserted crypto header.
++    if (fc[1] & 0x40)
++        return false;
++    unsigned long length = 24;
++    if ((fc[1] & 3) == 3)
++        length += 6;
++    if (fc[0] & 0x80) {
++        length += 2;
++        if (fc[1] & 0x80)
++            length += 4;
++    }
++    if (!omenRead(read, ctx, total, length, sizeof(snap), snap))
++        return false;
++    if (snap[0] != 0xaa || snap[1] != 0xaa || snap[2] != 3 || snap[3] ||
++        snap[4] || snap[5] || snap[6] != 0x88 || snap[7] != 0x8e)
++        return false;
++    return omenEapBody(read, ctx, total, length + 8, out);
++}
++#endif
+--- /dev/null
++++ b/include/OmenEapDiagKernel.h
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#ifndef OMEN_EAP_DIAG_KERNEL_H
++#define OMEN_EAP_DIAG_KERNEL_H
++#ifdef AIRPORT_WCL
++#include <sys/kpi_mbuf.h>
++#include <IOKit/IOLib.h>
++#include <libkern/OSAtomic.h>
++#include "OmenEapDiag.h"
++
++static inline int omenMbufRead(void *ctx, unsigned long offset, unsigned long length, unsigned char *out)
++{
++    return mbuf_copydata(static_cast<mbuf_t>(ctx), offset, length, out);
++}
++
++static inline unsigned long omenMbufLength(mbuf_t packet)
++{
++    if (!packet || mbuf_type(packet) == MBUF_TYPE_FREE)
++        return 0;
++    return (mbuf_flags(packet) & MBUF_PKTHDR) ? mbuf_pkthdr_len(packet) : mbuf_len(packet);
++}
++
++static inline void omenEapEmit(const char *tag, const OmenEapMeta &h,
++                               int state, unsigned int flags, int a, int b)
++{
++    // Bound logging overhead during a malformed or unusually busy EAP exchange.
++    // Each translation unit receives a fresh budget after the kext is reloaded.
++    static volatile SInt32 budget = 0;
++    if (OSIncrementAtomic(&budget) > 512)
++        return;
++    IOLog("itlwm: OMEN_EAPDIAG v3 tag=%s len=%lu ver=%u type=%u body=%u "
++          "eap=%u code=%u id=%u eaplen=%u method_valid=%u method=%u "
++          "state=%d flags=0x%x a=%d b=%d\n", tag, h.packetLength,
++          h.version, h.type, h.bodyLength, h.hasEap, h.code, h.identifier,
++          h.eapLength, h.hasMethod, h.method, state, flags, a, b);
++}
++
++static inline void omenEapTrace(const char *tag, mbuf_t packet, int state,
++                                unsigned int flags, int a, int b)
++{
++    OmenEapMeta h = {};
++    unsigned long length = omenMbufLength(packet);
++    if (length && omenEapEthernet(omenMbufRead, packet, length, &h))
++        omenEapEmit(tag, h, state, flags, a, b);
++}
++#endif
++#endif

@@ -1,0 +1,101 @@
+--- a/AirportItlwm/AirportItlwmV2.cpp
++++ b/AirportItlwm/AirportItlwmV2.cpp
+@@ -140,13 +140,13 @@
+ bool AirportItlwm::init(OSDictionary *properties)
+ {
+ #ifdef AIRPORT_WCL
+-    IOLog("itlwm: OMEN_EAPDIAG build=738d4c6_omen_eapdone1 completion-trace-test\n");
++    IOLog("itlwm: OMEN_EAPDIAG build=738d4c6_omen_eapnotify1 supplicant-notify-test\n");
+ #endif
+     XYLog("%s\n", __PRETTY_FUNCTION__);
+     bool ret = super::init(properties);
+ #ifdef AIRPORT_WCL
+     if (ret) {
+-        setProperty("OMENEapDiagBuild", "738d4c6_omen_eapdone1");
++        setProperty("OMENEapDiagBuild", "738d4c6_omen_eapnotify1");
+         IOLog("itlwm: OMEN_EAPSELFTEST value=%u hex=0x%x tag=%s\n", 245u, 0x1234u, "format-ok");
+     }
+ #endif
+--- a/AirportItlwm/WCL/WCL.cpp
++++ b/AirportItlwm/WCL/WCL.cpp
+@@ -1,3 +1,4 @@
++#include "OmenEnterpriseHandshake.h"
+ //
+ //  WCL.cpp
+ //  AirportItlwm
+@@ -634,6 +635,7 @@
+     IOLog("itlwm: OMEN_EAPSTATE handle_link up=%u stopping=%u pending=%u beacon=%u authorized=%u\n", unsigned(up), unsigned(wclStopping), unsigned(joinPending), unsigned(firstBeaconNotified), unsigned(portAuthorized));
+     if (wclStopping)
+         return;
++    const bool wasAuthorized = portAuthorized;
+     portAuthorized = up;
+     if (!up && wclLinkIndicated) {
+         AirportWCL::LinkStatusEvent event = {};
+@@ -645,6 +647,21 @@
+     }
+     if (up && joinPending && firstBeaconNotified)
+         finishWCLJoin(0, 0, kIOReturnSuccess);
++#if __IO80211_TARGET == __MAC_15_2
++    // ConnectComplete advances the join FSM but does not complete the WCL
++    // supplicant watchdog. Report actual net80211 port authorization separately.
++    // Its normal MIC/replay/key-install checks have already succeeded here.
++    ieee80211com *ic = fHalService->get80211Controller();
++    if (omenEnterpriseHandshakeReportAllowed(up, wasAuthorized, wclStopping,
++            ic->ic_wcl_enterprise, ic->ic_state == IEEE80211_S_RUN,
++            ic->ic_bss != nullptr, ic->ic_bss && ic->ic_bss->ni_port_valid)) {
++        AirportWCL::SequoiaSupplicantSuccessEvent event = {};
++        IOReturn result = instance->postMessage(this, AirportWCL::SupplicantEvent,
++                                               &event, sizeof(event), true);
++        IOLog("itlwm: OMEN_EAPSTATE supplicant_success_post result=0x%x size=%u port_valid=%u\n",
++              result, unsigned(sizeof(event)), unsigned(ic->ic_bss->ni_port_valid));
++    }
++#endif
+     updateWCLLinkQuality(true);
+ }
+ 
+--- a/AirportItlwm/WCL/WCL.hpp
++++ b/AirportItlwm/WCL/WCL.hpp
+@@ -60,6 +60,7 @@
+     ScanResult = 201,
+     Deauth = 203,
+     AssocComplete = 211,
++    SupplicantEvent = 76,
+     FirstBeacon = 212,
+     ConnectComplete = 213,
+     JoinAbortComplete = 214,
+@@ -164,6 +165,23 @@
+     uint16_t reason;
+     ConnectionPeer peers[10];
+ };
++
++// Sequoia WCLNetManager requires a 40-byte supplicant event. The success
++// status at byte 8 and transition-disable flags at byte 12 are zero. Leave
++// unneeded/reserved fields zero; no identity, PMK, PTK, or GTK is included.
++struct SequoiaSupplicantSuccessEvent {
++    uint32_t reserved0;
++    int32_t driverStatus;
++    uint32_t status;
++    uint32_t transitionDisableFlags;
++    uint8_t reserved16[20];
++    uint8_t duringJoin; // WCL fills this at byte 36.
++    uint8_t reserved37[3];
++};
++static_assert(sizeof(SequoiaSupplicantSuccessEvent) == 40, "Supplicant event size");
++static_assert(offsetof(SequoiaSupplicantSuccessEvent, status) == 8, "Supplicant status offset");
++static_assert(offsetof(SequoiaSupplicantSuccessEvent, transitionDisableFlags) == 12, "Supplicant flags offset");
++static_assert(offsetof(SequoiaSupplicantSuccessEvent, duringJoin) == 36, "Supplicant join offset");
+ 
+ struct LinkStatusEvent {
+     uint8_t bssid[6];
+--- /dev/null
++++ b/include/OmenEnterpriseHandshake.h
+@@ -0,0 +1,9 @@
++#ifndef OMEN_ENTERPRISE_HANDSHAKE_H
++#define OMEN_ENTERPRISE_HANDSHAKE_H
++// This reports an already completed net80211 handshake. It cannot authorize one.
++static inline bool omenEnterpriseHandshakeReportAllowed(bool up, bool wasAuthorized,
++    bool stopping, bool enterprise, bool running, bool haveBss, bool peerPortValid)
++{
++    return up && !wasAuthorized && !stopping && enterprise && running && haveBss && peerPortValid;
++}
++#endif
