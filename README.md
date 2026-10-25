@@ -1,6 +1,6 @@
-# HP OMEN · i7-14650HX / RTX 4060 Laptop · Hackintosh
+# HP 暗影精灵 10 乐享版 · i7-14650HX / RTX 4060 Laptop · Hackintosh
 
-这是一台 HP OMEN（主板 8CC0 / HM770）的 macOS Sequoia 15.8.1 实机配置与修复记录。维护者：[cells114514](https://github.com/cells114514)。记录截至 **2026-10-25**。
+这是一台 **HP 暗影精灵 10 乐享版（HP OMEN）**（主板 8CC0 / HM770）的 macOS Sequoia 15.8.1 实机配置与修复记录。维护者：[cells114514](https://github.com/cells114514)。记录截至 **2026-10-25**。
 
 本仓库整理 OpenCore 配置、当前使用的驱动、企业 Wi-Fi 与音频修复源码、上游贡献者，以及仍未解决的问题。**仅这台机器验证过；相同 CPU/GPU 不代表其他笔记本可直接使用。**
 
@@ -10,7 +10,7 @@
 
 | 项目 | 实机基线 |
 | --- | --- |
-| 电脑 | HP OMEN，主板 8CC0，HM770；未将未经核实的销售型号写入仓库 |
+| 电脑 | HP 暗影精灵 10 乐享版（HP OMEN），主板 8CC0，HM770；销售型号由机主确认 |
 | CPU | Intel Core i7-14650HX，8P+8E，16 核 / 24 线程 |
 | GPU | NVIDIA RTX 4060 Laptop 8 GB，AD107 / PCI 10de:28a0 |
 | 内屏 | BOE，2560×1440，原生 60 / 240 Hz；当前 1600×900 HiDPI @60 Hz |
