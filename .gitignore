@@ -13,15 +13,5 @@ Sources/AirportItlwm/include/FwBinary.cpp
 nvram*.plist
 *.p12
 *.mobileconfig
-
-__pycache__/
-*.pyc
-
-__pycache__/
-*.pyc
-
-__pycache__/
-*.pyc
-
 __pycache__/
 *.pyc
