@@ -41,7 +41,7 @@
 | --- | --- | --- |
 | OpenCore / OpenCanopy / ocvalidate | [acidanthera/OpenCorePkg](https://github.com/acidanthera/OpenCorePkg)；[Dortania构建25d02c8](https://github.com/dortania/build-repo/releases/tag/OpenCorePkg-25d02c8) | 实机1.0.9 DEBUG与同构建图形菜单/校验器 |
 | 图形菜单资源 | [acidanthera/OcBinaryData](https://github.com/acidanthera/OcBinaryData) | GoldenGate、字体和标签；保留原资源权属 |
-| NVIDIA系统驱动 | [nullmoth/nvidia-macos-driver](https://github.com/nullmoth/nvidia-macos-driver) | 实机2.5.3，NVRM/NVRMFB/NVAccel；不分发系统安装包 |
+| NVIDIA系统驱动 | [nullmoth/nvidia-macos-driver](https://github.com/nullmoth/nvidia-macos-driver) | 最新实测 [2.6.3](https://github.com/nullmoth/nvidia-macos-driver/releases/tag/v2.6.3)，历史基线2.5.3；感谢维护者及贡献者的驱动与HiDPI修复工作，本仓库提供本机验证；不分发系统安装包 |
 | 引导/恢复工具 | [nullmoth/1401](https://github.com/nullmoth/1401) | 原工程与NullMothSafe恢复入口；上游非商业许可需遵守 |
 | Intel固件与驱动祖先 | [OpenIntelWireless/itlwm](https://github.com/OpenIntelWireless/itlwm) | laobamac分支基础；保留Intel firmware license、BSD/net80211等源文件声明 |
 | MacKernelSDK | [acidanthera/MacKernelSDK](https://github.com/acidanthera/MacKernelSDK) | 固定3f750085…构建依赖；包含Apple APSL等原始声明 |

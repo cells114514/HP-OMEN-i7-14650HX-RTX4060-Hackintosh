@@ -1,0 +1,276 @@
+{
+  "date": "2026-10-28",
+  "os": "macOS Tahoe 26.7.2 (25G332)",
+  "driver": "NullMoth 2.6.3",
+  "hardware": "HP OMEN 8CC0 / RTX 4060 Laptop / BOE 2560x1440",
+  "scope": "Short session tests; no reboot persistence or long-term stability verification",
+  "tests": [
+    {
+      "requested": {
+        "index": 54,
+        "number": 54,
+        "flags": 1080033280,
+        "width": 1600,
+        "height": 900,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "return_code": 0,
+      "actual_index_after_2s": 54,
+      "actual_mode_after_2s": {
+        "index": 54,
+        "number": 54,
+        "flags": 1080033280,
+        "width": 1600,
+        "height": 900,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "actual_index_after_5s": 54,
+      "actual_mode_after_5s": {
+        "index": 54,
+        "number": 54,
+        "flags": 1080033280,
+        "width": 1600,
+        "height": 900,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "accepted": true
+    },
+    {
+      "requested": {
+        "index": 60,
+        "number": 60,
+        "flags": 1080033280,
+        "width": 1440,
+        "height": 810,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "return_code": 0,
+      "actual_index_after_2s": 60,
+      "actual_mode_after_2s": {
+        "index": 60,
+        "number": 60,
+        "flags": 1080033280,
+        "width": 1440,
+        "height": 810,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "actual_index_after_5s": 60,
+      "actual_mode_after_5s": {
+        "index": 60,
+        "number": 60,
+        "flags": 1080033280,
+        "width": 1440,
+        "height": 810,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "accepted": true
+    },
+    {
+      "requested": {
+        "index": 51,
+        "number": 51,
+        "flags": 2151677952,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "return_code": 1007,
+      "actual_index_after_2s": 3,
+      "actual_mode_after_2s": {
+        "index": 3,
+        "number": 3,
+        "flags": 4194305,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 1.0
+      },
+      "actual_index_after_5s": 3,
+      "actual_mode_after_5s": {
+        "index": 3,
+        "number": 3,
+        "flags": 4194305,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 1.0
+      },
+      "accepted": false
+    },
+    {
+      "requested": {
+        "index": 53,
+        "number": 53,
+        "flags": 2185232384,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "return_code": 1007,
+      "actual_index_after_2s": 3,
+      "actual_mode_after_2s": {
+        "index": 3,
+        "number": 3,
+        "flags": 4194305,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 1.0
+      },
+      "actual_index_after_5s": 3,
+      "actual_mode_after_5s": {
+        "index": 3,
+        "number": 3,
+        "flags": 4194305,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 1.0
+      },
+      "accepted": false
+    },
+    {
+      "requested": {
+        "index": 52,
+        "number": 52,
+        "flags": 2185232384,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 60,
+        "density": 2.0
+      },
+      "return_code": 1007,
+      "actual_index_after_2s": 3,
+      "actual_mode_after_2s": {
+        "index": 3,
+        "number": 3,
+        "flags": 4194305,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 1.0
+      },
+      "actual_index_after_5s": 3,
+      "actual_mode_after_5s": {
+        "index": 3,
+        "number": 3,
+        "flags": 4194305,
+        "width": 1280,
+        "height": 720,
+        "depth": 4,
+        "hz": 240,
+        "density": 1.0
+      },
+      "accepted": false
+    },
+    {
+      "requested": {
+        "index": 70,
+        "number": 70,
+        "flags": 1080033280,
+        "width": 1600,
+        "height": 900,
+        "depth": 4,
+        "hz": 60,
+        "density": 2.0
+      },
+      "return_code": 0,
+      "actual_index_after_2s": 70,
+      "actual_mode_after_2s": {
+        "index": 70,
+        "number": 70,
+        "flags": 1080033280,
+        "width": 1600,
+        "height": 900,
+        "depth": 4,
+        "hz": 60,
+        "density": 2.0
+      },
+      "actual_index_after_5s": 70,
+      "actual_mode_after_5s": {
+        "index": 70,
+        "number": 70,
+        "flags": 1080033280,
+        "width": 1600,
+        "height": 900,
+        "depth": 4,
+        "hz": 60,
+        "density": 2.0
+      },
+      "accepted": true
+    },
+    {
+      "requested": {
+        "index": 55,
+        "number": 55,
+        "flags": 1080033280,
+        "width": 1920,
+        "height": 1080,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "return_code": 0,
+      "actual_mode_after_2s": {
+        "index": 55,
+        "number": 55,
+        "flags": 1080033280,
+        "width": 1920,
+        "height": 1080,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "actual_mode_after_10s": {
+        "index": 55,
+        "number": 55,
+        "flags": 1080033280,
+        "width": 1920,
+        "height": 1080,
+        "depth": 4,
+        "hz": 240,
+        "density": 2.0
+      },
+      "accepted": true
+    }
+  ],
+  "final_mode": {
+    "index": 54,
+    "number": 54,
+    "flags": 1080033280,
+    "width": 1600,
+    "height": 900,
+    "depth": 4,
+    "hz": 240,
+    "density": 2.0
+  },
+  "driver_log_examples": [
+    "switchMode 0x80001001: test 2560x1440 -> raster 2560x1440 @240000 mHz -> 1",
+    "switchMode 0x80001001: COMMIT 2560x1440 -> raster 2560x1440 @240000 mHz -> 1",
+    "switchMode 0x80001002: test 2560x1440 -> raster 2560x1440 @240000 mHz -> 1",
+    "switchMode 0x80001002: COMMIT 2560x1440 -> raster 2560x1440 @240000 mHz -> 1"
+  ],
+  "log_note": "Selected fields only; timing, rotation and flipResult omitted. No raw logs or machine identities included."
+}

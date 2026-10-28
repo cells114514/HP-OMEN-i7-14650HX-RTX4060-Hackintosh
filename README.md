@@ -1,6 +1,6 @@
 # HP 暗影精灵 10 乐享版 · i7-14650HX / RTX 4060 Laptop · Hackintosh
 
-这是一台 **HP 暗影精灵 10 乐享版（HP OMEN）**（主板 8CC0 / HM770）的 macOS Sequoia 15.8.1 实机配置与修复记录。维护者：[cells114514](https://github.com/cells114514)。记录截至 **2026-10-25**。
+这是一台 **HP 暗影精灵 10 乐享版（HP OMEN）**（主板 8CC0 / HM770）的 macOS 实机配置与修复记录。维护者：[cells114514](https://github.com/cells114514)。记录截至 **2026-10-28**。
 
 本仓库整理 OpenCore 配置、当前使用的驱动、企业 Wi-Fi 与音频修复源码、上游贡献者，以及仍未解决的问题。**仅这台机器验证过；相同 CPU/GPU 不代表其他笔记本可直接使用。**
 
@@ -8,19 +8,23 @@
 
 ## 硬件与基线
 
+**最新实测**：macOS Tahoe 26.7.2（25G332）+ NullMoth 2.6.3，已通过 1600×900、1440×810、1920×1080 HiDPI @240 Hz 测试。当前使用 1600×900 HiDPI @240 Hz；重启保持及长期稳定性尚未验证。
+
+**下载内容的版本边界**：仓库现有 `EFI/`、Wi-Fi 源码/二进制、构建清单及旧版发布仍是 Sequoia 15.8.1 基线；本次仅更新验证文档，没有发布 Tahoe EFI 或驱动安装包。不要把文档中的新系统验证当成旧模板已适配 Tahoe。
+
 | 项目 | 实机基线 |
 | --- | --- |
 | 电脑 | HP 暗影精灵 10 乐享版（HP OMEN），主板 8CC0，HM770；销售型号由机主确认 |
 | CPU | Intel Core i7-14650HX，8P+8E，16 核 / 24 线程 |
 | GPU | NVIDIA RTX 4060 Laptop 8 GB，AD107 / PCI 10de:28a0 |
-| 内屏 | BOE，2560×1440，原生 60 / 240 Hz；当前 1600×900 HiDPI @60 Hz |
+| 内屏 | BOE，2560×1440，原生 60 / 240 Hz；当前 1600×900 HiDPI @240 Hz |
 | 无线 | Intel AX211，AirportItlwm 2.4.0 定制分支 |
 | 声卡 | 板载 Realtek ALC245；输出由 AppleALC 定制 layout 11 处理 |
 | 触控板 | ELAN07C8，I2C 控制器 8086:7A4C |
-| 系统 | macOS Sequoia 15.8.1（24H32） |
+| 系统 | 最新实测 macOS Tahoe 26.7.2（25G332）；公开 EFI 基线为 Sequoia 15.8.1（24H32） |
 | SMBIOS 模型 | MacBookPro16,4；所有个人身份字段已清空 |
 | OpenCore | 1.0.9 DEBUG，Dortania 构建 25d02c8；OpenCanopy 图形菜单 |
-| NVIDIA | NullMoth 2.5.3；不包含系统驱动安装文件，不自动升级 |
+| NVIDIA | 最新实测 [NullMoth 2.6.3](https://github.com/nullmoth/nvidia-macos-driver/releases/tag/v2.6.3)；历史基线 2.5.3，不包含系统驱动安装文件 |
 
 ## 已验证功能
 
@@ -32,7 +36,7 @@
 | 扬声器 / 3.5 mm 耳机输出 | 定制 AppleALC；耳机插入、国际象棋步数播报回归测试无崩溃 |
 | 键盘 / 触控板 | 内置键盘、双指滚动及触控板手势已人工验证 |
 | 内屏亮度 | `nvrmacpibl=1` 后可以实际调节 |
-| HiDPI | 逻辑 1600×900、渲染 3200×1800、物理 2560×1440，60 Hz；系统保存默认模式 |
+| HiDPI | 当前 1600×900 HiDPI @240 Hz；另测 1440×810、1920×1080 HiDPI @240 Hz 成功；[测试范围](docs/DISPLAY.md) |
 | 摄像头 | FaceTime、Photo Booth 拍照有画面；Photo Booth 实时预览仍可能黑屏 |
 | 电池 / 接电 | 拔电运行、放电识别、重新接电识别通过 |
 | USB / 有线网络 | 用户验证 USB 读写、接口与有线网络正常 |
@@ -46,11 +50,11 @@
 - **AirportItlwm 握手完成上报**：真实密钥握手成功、`ni_port_valid` 后，向本机 Sequoia WCL 上报独立 supplicant 事件，解决约十秒后 `4wayHsTimeout` 断线。[原理、证据与边界](docs/WIFI.md)。
 - **AppleALC ALC245 输出稳定性**：从 layout 11 删除错误的 HDA 输入端点和相关 ADC/DSP 输入路径，保留扬声器/耳机输出处理；这是避免崩溃的输出方案，**没有修复内置数字麦克风**。[音频说明](docs/AUDIO.md)。
 - **VoodooI2C**：在已有 133 MHz 控制器组增加精确的 `7a4c8086` 匹配；保留已验证轮询参数。[触控板差异](patches/VoodooI2C-7A4C-personality.patch)。
-- **亮度 / 缩放**：保留 `nvrmacpibl=1`、`nvfbhidpi=1` 和本机已用参数；HiDPI 仍有高刷限制。[显示说明](docs/DISPLAY.md)。
+- **亮度 / 缩放**：保留 `nvrmacpibl=1`、`nvfbhidpi=1` 和本机已用参数；2.6.3 下已验证 1600×900 至 1920×1080 中的所测 HiDPI 高刷模式成功。[显示说明](docs/DISPLAY.md)。
 
 ## 尚未解决与未充分验证
 
-详见 [已知问题](docs/KNOWN-ISSUES.md) 和本仓库 Issues。主要剩余：整机睡眠无法唤醒、内置 SOF/PDM 数字麦克风、部分失焦窗口黑块、外接 HDMI/USB-C 视频、高分辨率 HiDPI @240 Hz、Node75 蓝牙配对。企业 Wi-Fi 的睡眠恢复、漫游与长期压力测试未完成。
+详见 [已知问题](docs/KNOWN-ISSUES.md) 和本仓库 Issues。主要剩余：整机睡眠无法唤醒、内置 SOF/PDM 数字麦克风、部分失焦窗口黑块、外接 HDMI/USB-C 视频、1280×720 HiDPI（60 / 240 Hz 均失败）、Node75 蓝牙配对。企业 Wi-Fi 的睡眠恢复、漫游与长期压力测试未完成。
 
 ## 目录
 
